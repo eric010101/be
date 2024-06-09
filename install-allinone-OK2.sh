@@ -155,7 +155,11 @@ CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
 
 # 克隆GitHub仓库到临时目录
 sudo git clone https://github.com/eric010101/be 
-
+    sudo mkdir -p $CERT_DIR
+    sudo cp /root/be/fullchain.pem $CERT_DIR/fullchain.pem
+    sudo cp /root/be/privkey.pem $CERT_DIR/privkey.pem
+	sudo cp /root/be/chain.pem $CERT_DIR/chain.pem
+	sudo cp /root/be/cert.pem $CERT_DIR/cert.pem
 # 检查GitHub上是否有证书
 if [[ -f /root/be/fullchain.pem && -f /root/be/privkey.pem ]]; then
     echo "从GitHub下载证书..."
