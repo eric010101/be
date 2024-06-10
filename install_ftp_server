@@ -61,7 +61,11 @@ echo "Creating FTP users..."
 for i in {1..5}; do
     USERNAME="ftpuser$i"
     PASSWORD=$(openssl rand -base64 12)
-    sudo adduser --gecos "" --disabled-password $USERNAME
+    if id "$USERNAME" &>/dev/null; then
+        echo "User $USERNAME already exists, deleting user."
+        sudo deluser --remove-home "$USERNAME"
+    fi
+    sudo adduser --gecos "" --disabled-password "$USERNAME"
     echo "$USERNAME:$PASSWORD" | sudo chpasswd
     sudo mkdir -p /home/$USERNAME/ftp/upload
     sudo chown nobody:nogroup /home/$USERNAME/ftp
@@ -70,5 +74,55 @@ for i in {1..5}; do
     echo "Created user $USERNAME with password $PASSWORD"
 done
 
+# Check if all.ini file exists
+if [[ ! -f all.ini ]]; then
+    echo "Error: 'all.ini' file not found. Please create the file with the list of users in the format '[ftp] user1_name=username user1_password=password'."
+    exit 1
+fi
+
+# Read users from all.ini file
+declare -A ftp_users
+current_section=""
+while IFS= read -r line; do
+    # Skip empty lines and comments
+    [[ -z "$line" || "$line" =~ ^# ]] && continue
+    
+    # Read section name
+    if [[ "$line" =~ ^\[(.*)\]$ ]]; then
+        current_section="${BASH_REMATCH[1]}"
+    elif [[ "$current_section" == "ftp" && "$line" =~ ^([^=]+)=(.*)$ ]]; then
+        key="${BASH_REMATCH[1]// /}"
+        value="${BASH_REMATCH[2]// /}"
+        if [[ "$key" =~ user[0-9]+_name ]]; then
+            username="$value"
+        elif [[ "$key" =~ user[0-9]+_password ]]; then
+            password="$value"
+            ftp_users["$username"]="$password"
+        fi
+    fi
+done < all.ini
+
+# Print users read from all.ini
+echo "Read the following users from all.ini:"
+for username in "${!ftp_users[@]}"; do
+    echo "Username: $username, Password: ${ftp_users[$username]}"
+done
+
+# Create FTP users and directories
+for username in "${!ftp_users[@]}"; do
+    if id "$username" &>/dev/null; then
+        echo "User $username already exists, deleting user."
+        sudo deluser --remove-home "$username"
+    fi
+    sudo adduser --gecos "" --disabled-password "$username"
+    echo "$username:${ftp_users[$username]}" | sudo chpasswd
+    sudo mkdir -p /home/$username/ftp/upload
+    sudo chown nobody:nogroup /home/$username/ftp
+    sudo chmod a-w /home/$username/ftp
+    sudo chown $username:$username /home/$username/ftp/upload
+    echo "User $username created with password ${ftp_users[$username]}"
+done
+
 echo "vsftpd installation and configuration completed."
 echo "FTP server is running and ready for use."
+
