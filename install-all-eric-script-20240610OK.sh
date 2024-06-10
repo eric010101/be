@@ -16,7 +16,7 @@ dos2unix run-all.sh
 sudo chmod +x run-all.sh
 ./run-all.sh
 
-sudo cp /root/be/install-ftp-server.sh /root/install-ftp-server.sh
-dos2unix install-ftp-server.sh
-sudo chmod +x install-ftp-server.sh
-./install-ftp-server.sh
+sudo cp /root/be/install_ftp_server.sh /root/install_ftp_server.sh
+dos2unix install_ftp_server.sh
+sudo chmod +x install_ftp_server.sh
+./install_ftp_server.sh
