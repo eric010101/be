@@ -1,3 +1,4 @@
+#!/bin/bash
 #eric script
 git clone https://github.com/eric010101/be.git /root/be
 
