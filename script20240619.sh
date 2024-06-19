@@ -2,7 +2,7 @@
 
 # 日志文件
 LOG_FILE="/root/allinone06.log"
-USER_FILE="/root/allinone-idpw06.txt"
+USER_FILE="/root/allinone-idpw.txt"
 
 exec > >(tee -a ${LOG_FILE}) 2>&1
 
@@ -17,7 +17,7 @@ wait_for_dpkg_lock() {
 # Function to log and execute commands
 log_and_execute() {
     echo "Executing: $@" | tee -a ${LOG_FILE}
-    "$@"
+    "$@" | tee -a ${LOG_FILE}
 }
 
 # Function to check Apache configuration
@@ -25,6 +25,7 @@ check_apache_config() {
     log_and_execute sudo apache2ctl configtest
     if ! sudo apache2ctl configtest | grep -q "Syntax OK"; then
         echo "There is a syntax error in the Apache configuration. Please check the output above for details." | tee -a ${LOG_FILE}
+        sudo tail -n 50 /var/log/apache2/error.log | tee -a ${LOG_FILE}
         #exit 1
     fi
 }
@@ -48,6 +49,9 @@ log_and_execute cp /root/be/install-allinone-OK2.sh /root/fix-https-cert.sh
 log_and_execute chmod +x /root/fix-https-cert.sh
 log_and_execute dos2unix /root/fix-https-cert.sh
 
+# 更新系统包信息
+log_and_execute sudo apt-get update -y
+
 # 加载配置文件
 CONFIG_FILE="/root/all20240619.ini"
 if [[ ! -f $CONFIG_FILE ]]; then
@@ -66,8 +70,6 @@ MYSQL_USER=$(awk -F ' = ' '/database_user/ {print $2}' $CONFIG_FILE)
 MYSQL_PASSWORD=$(awk -F ' = ' '/database_password/ {print $2}' $CONFIG_FILE)
 PHPMYADMIN_APP_PASSWORD=$(awk -F ' = ' '/app_password/ {print $2}' $CONFIG_FILE)
 
-# 更新系统包信息
-log_and_execute sudo apt-get update -y
 
 # 安装Apache
 log_and_execute wait_for_dpkg_lock
@@ -136,7 +138,59 @@ log_and_execute mysql -u root -p$MYSQL_ROOT_PASSWORD -e "CREATE USER '$MYSQL_USE
 log_and_execute mysql -u root -p$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'localhost';"
 log_and_execute mysql -u root -p$MYSQL_ROOT_PASSWORD -e "FLUSH PRIVILEGES;"
 
-# 配置SSL证书
+# 创建 /etc/apache2/sites-available/default-ssl.conf 文件
+if [ ! -f /etc/apache2/sites-available/default-ssl.conf ]; then
+    echo "Creating /etc/apache2/sites-available/default-ssl.conf"
+    sudo bash -c "cat > /etc/apache2/sites-available/default-ssl.conf" <<EOF
+<IfModule mod_ssl.c>
+<VirtualHost _default_:443>
+    ServerAdmin webmaster@localhost
+    ServerName $DOMAIN
+    DocumentRoot /var/www/html/wordpress
+
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/$DOMAIN/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/$DOMAIN/privkey.pem
+    Include /etc/letsencrypt/options-ssl-apache.conf
+
+    <FilesMatch "\\.(cgi|shtml|phtml|php)$">
+        SSLOptions +StdEnvVars
+    </FilesMatch>
+
+    <Directory /usr/lib/cgi-bin>
+        SSLOptions +StdEnvVars
+    </Directory>
+
+    <Directory /var/www/html/wordpress>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    BrowserMatch "MSIE [2-6]" \
+      nokeepalive ssl-unclean-shutdown \
+      downgrade-1.0 force-response-1.0
+    BrowserMatch "MSIE [17-9]" ssl-unclean-shutdown
+</VirtualHost>
+</IfModule>
+EOF
+fi
+
+# 创建 /etc/letsencrypt/options-ssl-apache.conf 文件
+if [ ! -f /etc/letsencrypt/options-ssl-apache.conf ]; then
+    echo "Creating /etc/letsencrypt/options-ssl-apache.conf"
+    sudo mkdir -p /etc/letsencrypt
+    sudo bash -c "cat > /etc/letsencrypt/options-ssl-apache.conf" <<EOF
+SSLProtocol all -SSLv2 -SSLv3
+SSLCipherSuite HIGH:!aNULL:!MD5
+SSLHonorCipherOrder on
+EOF
+fi
+
+# 下载并配置证书
 CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
 BACKUP_DIR="/etc/letsencrypt/backup_$DOMAIN"
 
@@ -166,50 +220,13 @@ log_and_execute sudo cp /root/be/cert.pem $CERT_DIR/cert.pem
 log_and_execute sudo chown root:root $CERT_DIR/fullchain.pem $CERT_DIR/privkey.pem $CERT_DIR/chain.pem $CERT_DIR/cert.pem
 log_and_execute sudo chmod 600 $CERT_DIR/fullchain.pem $CERT_DIR/privkey.pem $CERT_DIR/chain.pem $CERT_DIR/cert.pem
 
-# 配置Apache使用SSL证书
-log_and_execute sudo bash -c "cat > /etc/apache2/sites-available/default-ssl.conf" <<EOF
-<IfModule mod_ssl.c>
-<VirtualHost _default_:443>
-    ServerAdmin webmaster@localhost
-    ServerName $DOMAIN
-    DocumentRoot /var/www/html/wordpress
-
-    ErrorLog \${APACHE_LOG_DIR}/error.log
-    CustomLog \${APACHE_LOG_DIR}/access.log combined
-
-    SSLEngine on
-    SSLCertificateFile /etc/letsencrypt/live/$DOMAIN/fullchain.pem
-    SSLCertificateKeyFile /etc/letsencrypt/live/$DOMAIN/privkey.pem
-    Include /etc/letsencrypt/options-ssl-apache.conf
-
-    <FilesMatch "\\.(cgi|shtml|phtml|php)\$">
-        SSLOptions +StdEnvVars
-    </FilesMatch>
-
-    <Directory /usr/lib/cgi-bin>
-        SSLOptions +StdEnvVars
-    </Directory>
-
-    <Directory /var/www/html/wordpress>
-        Options Indexes FollowSymLinks
-        AllowOverride All
-        Require all granted
-    </Directory>
-
-    BrowserMatch "MSIE [2-6]" \
-      nokeepalive ssl-unclean-shutdown \
-      downgrade-1.0 force-response-1.0
-    BrowserMatch "MSIE [17-9]" ssl-unclean-shutdown
-</VirtualHost>
-</IfModule>
-EOF
-
 # 启用SSL模块和站点配置，并重新加载Apache服务
-log_and_execute sudo cp /root/be/options-ssl-apache.conf /etc/letsencrypt/options-ssl-apache.conf
 log_and_execute sudo a2enmod ssl
 log_and_execute sudo a2ensite default-ssl
-#log_and_execute sudo systemctl reload apache2
 log_and_execute sudo systemctl restart apache2
+
+# 验证Apache配置
+check_apache_config
 
 # 安装phpMyAdmin
 log_and_execute wait_for_dpkg_lock
@@ -240,13 +257,13 @@ fi
 FTP_UPLOAD_DIR="/home/ftpuser/upload"
 log_and_execute sudo mkdir -p $FTP_UPLOAD_DIR
 if [ -f $CONFIG_FILE ]; then
-    log_and_execute sudo cp $CONFIG_FILE $FTP_UPLOAD_DIR/${DOMAIN}_allinione.ini
+    log_and_execute sudo cp $CONFIG_FILE $FTP_UPLOAD_DIR/${DOMAIN}_all20240619.ini
 fi
 if [ -f $LOG_FILE ]; then
-    log_and_execute sudo cp $LOG_FILE $FTP_UPLOAD_DIR/${DOMAIN}_allinone.log
+    log_and_execute sudo cp $LOG_FILE $FTP_UPLOAD_DIR/${DOMAIN}_allinone06.log
 fi
 if [ -f $USER_FILE ]; then
-    log_and_execute sudo cp $USER_FILE $FTP_UPLOAD_DIR/${DOMAIN}_allinione-idpw.txt
+    log_and_execute sudo cp $USER_FILE $FTP_UPLOAD_DIR/${DOMAIN}_allinone-idpw.txt
 fi
 
 echo "HTTPS证书生成和配置完成。" | tee -a ${LOG_FILE}
