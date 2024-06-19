@@ -277,8 +277,8 @@ fi
 # install suno api
 sudo apt install npm -y
 git clone https://github.com/gcui-art/suno-api.git
-cp /be/suno.env /suno-api/.env
-cd suno-api
+cp /root/be/suno.env /root/suno-api/.env
+cd /root/suno-api/
 npm install
 
 sudo ufw allow 3000
