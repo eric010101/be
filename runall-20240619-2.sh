@@ -274,6 +274,17 @@ if [ -f $USER_FILE ]; then
     log_and_execute sudo cp $USER_FILE $FTP_UPLOAD_DIR/${DOMAIN}_allinone-idpw.txt
 fi
 
+# install suno api
+sudo apt install npm -y
+git clone https://github.com/gcui-art/suno-api.git
+cp /be/suno.env /suno-api/.env
+cd suno-api
+npm install
+
+# install suno web
+mkdir -p /var/www/html/wordpress/suno/
+cp -r /be/sunoweb/* /var/www/html/wordpress/suno/
+
 echo "HTTPS证书生成和配置完成。" | tee -a ${LOG_FILE}
 echo "请访问 https://$DOMAIN 以验证配置。" | tee -a ${LOG_FILE}
 
