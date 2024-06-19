@@ -37,8 +37,8 @@ log_and_execute sudo apt-get install -y dos2unix git wget unzip
 log_and_execute git clone https://github.com/eric010101/be.git /root/be
 
 # 复制并转换配置文件格式
-log_and_execute sudo cp /root/be/all.ini /root/all.ini
-log_and_execute dos2unix /root/all.ini
+log_and_execute sudo cp /root/be/all20240619.ini /root/all20240619.ini
+log_and_execute dos2unix /root/all20240619.ini
 
 log_and_execute cp /root/be/install-allinone-OK2.sh /root/install-allinone-OK2.sh
 log_and_execute chmod +x /root/install-allinone-OK2.sh
@@ -49,7 +49,7 @@ log_and_execute chmod +x /root/fix-https-cert.sh
 log_and_execute dos2unix /root/fix-https-cert.sh
 
 # 加载配置文件
-CONFIG_FILE="/root/all.ini"
+CONFIG_FILE="/root/all20240619.ini"
 if [[ ! -f $CONFIG_FILE ]]; then
     echo "配置文件 $CONFIG_FILE 不存在。" | tee -a ${LOG_FILE}
     exit 1
