@@ -275,9 +275,9 @@ if [ -f $USER_FILE ]; then
 fi
 
 # install suno api
-sudo apt install npm -y
-git clone https://github.com/gcui-art/suno-api.git
-cp /root/be/suno.env /root/suno-api/.env
+log_and_execute sudo apt install npm -y
+log_and_execute git clone https://github.com/gcui-art/suno-api.git /root/suno-api
+log_and_execute cp /root/be/suno.env /root/suno-api/.env
 cd /root/suno-api/
 npm install
 
@@ -285,9 +285,10 @@ sudo ufw allow 3000
 sudo ufw reload
 sudo ufw status
 # install suno web
-git clone https://github.com/eric010101/sunoweb.git 
-mkdir -p /var/www/html/wordpress/suno/
-cp -r /root/sunoweb/* /var/www/html/wordpress/suno/
+
+git clone https://github.com/eric010101/sunoweb.git /var/www/html/wordpress/suno
+#mkdir -p /var/www/html/wordpress/suno/
+#cp -r /root/sunoweb/* /var/www/html/wordpress/suno/
 
 echo "HTTPS证书生成和配置完成。" | tee -a ${LOG_FILE}
 echo "请访问 https://$DOMAIN 以验证配置。" | tee -a ${LOG_FILE}
