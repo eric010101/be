@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # 日志文件
-LOG_FILE="/root/allinone.log"
-USER_FILE="/root/allinone-idpw.txt"
+LOG_FILE="/root/allinone06.log"
+USER_FILE="/root/allinone-idpw06.txt"
 
 exec > >(tee -a ${LOG_FILE}) 2>&1
 
