@@ -285,9 +285,9 @@ sudo ufw allow 3000
 sudo ufw reload
 sudo ufw status
 # install suno web
-
+git clone https://github.com/eric010101/sunoweb.git 
 mkdir -p /var/www/html/wordpress/suno/
-cp -r /be/sunoweb/* /var/www/html/wordpress/suno/
+cp -r /root/sunoweb/* /var/www/html/wordpress/suno/
 
 echo "HTTPS证书生成和配置完成。" | tee -a ${LOG_FILE}
 echo "请访问 https://$DOMAIN 以验证配置。" | tee -a ${LOG_FILE}
