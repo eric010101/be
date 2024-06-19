@@ -6,18 +6,18 @@ USER_FILE="/root/allinone-idpw.txt"
 
 exec > >(tee -a ${LOG_FILE}) 2>&1
 
+# Function to log and execute commands
+log_and_execute() {
+    echo "Executing: $@" | tee -a ${LOG_FILE}
+    "$@" | tee -a ${LOG_FILE}
+}
+
 # Function to wait for dpkg lock
 wait_for_dpkg_lock() {
     while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
         echo "Waiting for other package management process to finish..." | tee -a ${LOG_FILE}
         sleep 5
     done
-}
-
-# Function to log and execute commands
-log_and_execute() {
-    echo "Executing: $@" | tee -a ${LOG_FILE}
-    "$@" | tee -a ${LOG_FILE}
 }
 
 # Function to check Apache configuration
@@ -29,6 +29,7 @@ check_apache_config() {
         #exit 1
     fi
 }
+
 
 # 更新系统包信息并安装必要工具
 log_and_execute sudo apt-get update
@@ -69,8 +70,6 @@ MYSQL_DATABASE=$(awk -F ' = ' '/database_name/ {print $2}' $CONFIG_FILE)
 MYSQL_USER=$(awk -F ' = ' '/database_user/ {print $2}' $CONFIG_FILE)
 MYSQL_PASSWORD=$(awk -F ' = ' '/database_password/ {print $2}' $CONFIG_FILE)
 PHPMYADMIN_APP_PASSWORD=$(awk -F ' = ' '/app_password/ {print $2}' $CONFIG_FILE)
-
-
 # 安装Apache
 log_and_execute wait_for_dpkg_lock
 log_and_execute sudo apt-get install -y apache2
@@ -138,22 +137,22 @@ log_and_execute mysql -u root -p$MYSQL_ROOT_PASSWORD -e "CREATE USER '$MYSQL_USE
 log_and_execute mysql -u root -p$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'localhost';"
 log_and_execute mysql -u root -p$MYSQL_ROOT_PASSWORD -e "FLUSH PRIVILEGES;"
 
-# 创建 /etc/apache2/sites-available/default-ssl.conf 文件
-if [ ! -f /etc/apache2/sites-available/default-ssl.conf ]; then
-    echo "Creating /etc/apache2/sites-available/default-ssl.conf"
-    sudo bash -c "cat > /etc/apache2/sites-available/default-ssl.conf" <<EOF
+# 创建和配置 /etc/apache2/sites-available/default-ssl.conf 文件
+echo "Creating and configuring /etc/apache2/sites-available/default-ssl.conf"
+sudo rm -f /etc/apache2/sites-available/default-ssl.conf
+sudo bash -c "cat > /etc/apache2/sites-available/default-ssl.conf" <<EOF
 <IfModule mod_ssl.c>
 <VirtualHost _default_:443>
     ServerAdmin webmaster@localhost
-    ServerName $DOMAIN
+    ServerName myaimaster.zapto.org
     DocumentRoot /var/www/html/wordpress
 
-    ErrorLog ${APACHE_LOG_DIR}/error.log
-    CustomLog ${APACHE_LOG_DIR}/access.log combined
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
 
     SSLEngine on
-    SSLCertificateFile /etc/letsencrypt/live/$DOMAIN/fullchain.pem
-    SSLCertificateKeyFile /etc/letsencrypt/live/$DOMAIN/privkey.pem
+    SSLCertificateFile /etc/letsencrypt/live/myaimaster.zapto.org/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/myaimaster.zapto.org/privkey.pem
     Include /etc/letsencrypt/options-ssl-apache.conf
 
     <FilesMatch "\\.(cgi|shtml|phtml|php)$">
@@ -177,18 +176,27 @@ if [ ! -f /etc/apache2/sites-available/default-ssl.conf ]; then
 </VirtualHost>
 </IfModule>
 EOF
-fi
 
-# 创建 /etc/letsencrypt/options-ssl-apache.conf 文件
-if [ ! -f /etc/letsencrypt/options-ssl-apache.conf ]; then
-    echo "Creating /etc/letsencrypt/options-ssl-apache.conf"
-    sudo mkdir -p /etc/letsencrypt
-    sudo bash -c "cat > /etc/letsencrypt/options-ssl-apache.conf" <<EOF
+# 创建和配置 /etc/letsencrypt/options-ssl-apache.conf 文件
+echo "Creating and configuring /etc/letsencrypt/options-ssl-apache.conf"
+sudo rm -f /etc/letsencrypt/options-ssl-apache.conf
+sudo mkdir -p /etc/letsencrypt
+sudo bash -c "cat > /etc/letsencrypt/options-ssl-apache.conf" <<EOF
 SSLProtocol all -SSLv2 -SSLv3
 SSLCipherSuite HIGH:!aNULL:!MD5
 SSLHonorCipherOrder on
 EOF
-fi
+
+# 验证Apache配置
+check_apache_config
+
+# 启用SSL模块和站点配置，并重新加载Apache服务
+log_and_execute sudo a2enmod ssl
+log_and_execute sudo a2ensite default-ssl
+log_and_execute sudo systemctl restart apache2
+
+# 验证Apache配置
+check_apache_config
 
 # 下载并配置证书
 CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
