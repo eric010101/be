@@ -281,7 +281,11 @@ cp /be/suno.env /suno-api/.env
 cd suno-api
 npm install
 
+sudo ufw allow 3000
+sudo ufw reload
+sudo ufw status
 # install suno web
+
 mkdir -p /var/www/html/wordpress/suno/
 cp -r /be/sunoweb/* /var/www/html/wordpress/suno/
 
@@ -294,3 +298,5 @@ echo "SSL certificate has been obtained for $DOMAIN." | tee -a ${LOG_FILE}
 echo "Please change 'rootpassword', '$MYSQL_DATABASE', '$MYSQL_USER', and '$MYSQL_PASSWORD' to secure values of your choice." | tee -a ${LOG_FILE}
 echo "You can access your WordPress site at https://$DOMAIN/wordpress" | tee -a ${LOG_FILE}
 echo "You can access phpMyAdmin at https://$DOMAIN/phpmyadmin" | tee -a ${LOG_FILE}
+npm run dev
+echo "suno running....."
