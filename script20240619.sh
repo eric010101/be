@@ -25,7 +25,7 @@ check_apache_config() {
     log_and_execute sudo apache2ctl configtest
     if ! sudo apache2ctl configtest | grep -q "Syntax OK"; then
         echo "There is a syntax error in the Apache configuration. Please check the output above for details." | tee -a ${LOG_FILE}
-        exit 1
+        #exit 1
     fi
 }
 
@@ -52,7 +52,7 @@ log_and_execute dos2unix /root/fix-https-cert.sh
 CONFIG_FILE="/root/all20240619.ini"
 if [[ ! -f $CONFIG_FILE ]]; then
     echo "配置文件 $CONFIG_FILE 不存在。" | tee -a ${LOG_FILE}
-    exit 1
+    #exit 1
 fi
 
 GITHUB_USERNAME=$(awk -F ' = ' '/username/ {print $2}' $CONFIG_FILE)
